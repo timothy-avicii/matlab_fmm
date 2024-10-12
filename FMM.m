@@ -8,7 +8,7 @@ function quadtree = build_quadtree(particles, boundary, max_particles)
         quadtree = struct('children', {}, 'particles', particles, 'boundary', boundary);
         % 分割區域，並遞迴建立子樹
         quadtree.children{1} = build_quadtree(...); % 子樹1
-        quadtree.children{2} = build_quadtree(...); % 子樹2
+        quadtree.children{2} = build_quadtree(...)  % 子樹2
         quadtree.children{3} = build_quadtree(...); % 子樹3
         quadtree.children{4} = build_quadtree(...); % 子樹4
     else
