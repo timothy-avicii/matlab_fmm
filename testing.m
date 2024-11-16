@@ -112,3 +112,20 @@ U_list(3) = struct('node', 'U3', 'list', [7, 8, 9]);
 
 % 顯示結構體數組
 disp(U_list);
+%% 
+A = [1, 2, 3, 4, 5;
+     6, 7, 8, 9, 10;
+     11, 12, 13, 14, 15;
+     16, 17, 18, 19, 20];
+function [q1, q2, q3, q4] = splitMatrix(data)
+    [rows, cols] = size(data);
+    midRow = ceil(rows / 2);  % 向上取整
+    midCol = ceil(cols / 2);  % 向上取整
+    
+    q1 = data(1:midRow, 1:midCol);         % 左上象限
+    q2 = data(1:midRow, midCol+1:end);     % 右上象限
+    q3 = data(midRow+1:end, 1:midCol);     % 左下象限
+    q4 = data(midRow+1:end, midCol+1:end); % 右下象限
+end
+
+[q1, q2, q3, q4] = splitMatrix(A)

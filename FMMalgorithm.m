@@ -1,111 +1,150 @@
-%% Initialization
-function quadtree = initialize_quadtree(particles, boundary, max_particles)
-    % particles: 粒子的位置信息
-    % boundary: 節點的邊界 [xmin, xmax, ymin, ymax]
-    % max_particles: 每個節點中最多能容納的粒子數
+load test_wo_ans.mat
+
+
+global max_particles
+max_particles = 64;
+
+global levelnum
+levelnum = 1;
+cell = {};  
+
+[mask_r, mask_c ] = size(mask) ;
+mask_r = mask_r - 1 ;
+mask_c = mask_c - 1 ;
+
+lam_mask = gcd( mask_r , mask_c );
+
+init_row =  mask_r/lam_mask ;
+init_col = mask_c/lam_mask;
+init_node( 1 , 1 ) = struct( 'range' , [ ] , 'part' , 0 ) ;
+global node_num
+node_num = 0 ;
+init_node = initial_split(init_row,init_col, init_node,lam_mask,mask) ;
+
+function node=initial_split(row,col,node,lam,mask)
+    %初始分割
     
-    % 如果當前節點的粒子數量超過 max_particles，則分割區域
-    if numel(particles) > max_particles
-        quadtree = struct('children', {}, 'particles', [], 'boundary', boundary);
-        % 分割成四個區域
-        [region1, region2, region3, region4] = split_boundary(boundary);
-        % 根據位置將粒子分配到各個區域
-        particles1 = filter_particles(particles, region1);
-        particles2 = filter_particles(particles, region2);
-        particles3 = filter_particles(particles, region3);
-        particles4 = filter_particles(particles, region4);
-        
-        % 遞迴地為每個子區域建立四叉樹
-        quadtree.children{1} = initialize_quadtree(particles1, region1, max_particles);
-        quadtree.children{2} = initialize_quadtree(particles2, region2, max_particles);
-        quadtree.children{3} = initialize_quadtree(particles3, region3, max_particles);
-        quadtree.children{4} = initialize_quadtree(particles4, region4, max_particles);
-    else
-        % 如果粒子數量在可接受範圍內，則不分割
-        quadtree = struct('children', {}, 'particles', particles, 'boundary', boundary);
+    global node_num
+    for i= 1 : row
+        for j = 1 : col
+            node( i , j ).range = [lam*(i - 1) lam*i lam*(j - 1)  lam*j ] ;
+            count = mask( lam*(i - 1)+1 : lam*i+1 , lam*(j - 1)+1 : lam*j+1 ) ;
+            node( i , j ).part = nnz(count) ;
+            node_num = node_num + 1 ;
+        end
     end
+
+    %用最大公因數做初始分割 每個節點一定都是正方形
+end
+levelnum = levelnum + 1 ;
+
+
+%% 
+function recursive_split(node)
+    %遞歸分割
+    global levelnum
+    global node_num
+    for i= 1 : row
+        for j = 1 : col
+            node( i , j ).range = [lam*(i - 1) lam*i lam*(j - 1)  lam*j ] ;
+            count = mask( lam*(i - 1)+1 : lam*i+1 , lam*(j - 1)+1 : lam*j+1 ) ;
+            node( i , j ).part = nnz(count) ;
+            node(i , j ).level = levelnum ;
+            node_num = node_num + 1 ;
+        end
+    end
+
 end
 
-function [region1, region2, region3, region4] = split_boundary(boundary)
-    % 根據當前邊界將其分成四個子區域
-    mid_x = (boundary(1) + boundary(2)) / 2;
-    mid_y = (boundary(3) + boundary(4)) / 2;
+
+function [q1, q2, q3, q4] = splitMatrix(data)
+    [rows, cols] = size(data);
+    midRow = ceil(rows / 2);  % 向上取整
+    midCol = ceil(cols / 2);  % 向上取整
+    %避免分割的範圍不是正方形
+    q1 = data(1:midRow, 1:midCol);         % 左上象限
+    q2 = data(1:midRow, midCol+1:end);     % 右上象限
+    q3 = data(midRow+1:end, 1:midCol);     % 左下象限
+    q4 = data(midRow+1:end, midCol+1:end); % 右下象限
+end
+
+
+
+
+
+%%
+U_list = struct('node', '', 'list', []); 
+V_list = struct('node', '', 'list', []); 
+
+% 開始進行先序遍歷
+pre_order_traversal(mask_quadtree);
+
+function pre_order_traversal(root_node)
     
-    region1 = [boundary(1), mid_x, boundary(3), mid_y];
-    region2 = [mid_x, boundary(2), boundary(3), mid_y];
-    region3 = [boundary(1), mid_x, mid_y, boundary(4)];
-    region4 = [mid_x, boundary(2), mid_y, boundary(4)];
-end
-
-function filtered_particles = filter_particles(particles, region)
-    % 過濾出位於 region 內的粒子
-    filtered_particles = particles(particles(:,1) >= region(1) & particles(:,1) <= region(2) & ...
-                                   particles(:,2) >= region(3) & particles(:,2) <= region(4), :);
-end
-
-%% Upward pass
-function multipole_expansion = upward_pass(node)
-    % 如果是葉節點，計算多極展開
-    if isempty(node.children)
-        multipole_expansion = compute_multipole(node.particles);
-    else
-        % 否則，遞迴地計算每個子節點的多極展開，並合併結果
-        multipole_expansion = 0;
-        for i = 1:4
-            child_expansion = upward_pass(node.children{i});
-            multipole_expansion = merge_multipole(multipole_expansion, child_expansion);
+    global U_list;
+    global V_list;
+    
+    % 初始化計數器
+    U_counter1 = 0;
+    V_counter1 = 0;
+    
+    % 遍歷四叉樹的四個子節點
+    for k = 1:4
+        if ~isempty(root_node(k).children)
+            
+            U_counter1 = U_counter1 + 1 ;
+            % 更新U_list (最近鄰域節點)
+            U_list(U_counter1).node = sprintf('%s%c%d%s', inputname(1), '(', U_counter1, ').children');
+            U_list(U_counter1).list = find_neighbor_nodes(root_node, k);  % 優化：提取邏輯
+            
+            % 更新V_list (遠場節點)
+            V_counter1 = V_counter1 + 1;
+            V_list(V_counter1).node = sprintf('%s%c%d%s', inputname(1), '(', V_counter1, ').children');
+            V_list(V_counter1).list = find_far_field_nodes(root_node, k);  % 優化：提取邏輯
+            
+            % 遞迴遍歷 recursive
+            pre_order_traversal(root_node(k).children);
         end
     end
 end
 
-function multipole = compute_multipole(particles)
-    % 根據粒子的位置和劑量值計算多極展開
-    % 此處可自訂 Chebyshev 插值或其他方法
-    multipole = sum(particles(:, 3));  % 假設第三列是劑量值
-end
-
-function result = merge_multipole(parent_multipole, child_multipole)
-    % 合併父節點和子節點的多極展開
-    result = parent_multipole + child_multipole;
-end
-
-
-%% Downward pass
-function local_expansion = downward_pass(node, parent_local_expansion)
-    % 計算當前節點的局部展開，從父節點向下傳遞
-    if isempty(node.children)
-        local_expansion = parent_local_expansion + compute_local(node.particles);
-    else
-        % 遞迴地對每個子節點進行局部展開的傳遞
-        for i = 1:4
-            node.children{i}.local_expansion = downward_pass(node.children{i}, parent_local_expansion);
+function neighbor_nodes = find_neighbor_nodes(root_node, current_index)
+    % 查找與當前節點相鄰的同層級節點 (最近鄰域)
+    neighbor_nodes = [];
+    current_node = root_node(current_index);
+    for i = 1:4
+        if i ~= current_index  % 跳過當前節點本身
+            if root_node(i).level == current_node.level && is_adjacent(root_node(i), current_node)
+                neighbor_nodes = [neighbor_nodes, root_node(i).children];
+            end
         end
     end
 end
 
-function local = compute_local(particles)
-    % 計算粒子的局部展開
-    local = sum(particles(:, 3));  % 假設第三列是劑量值
-end
-
-
-%% Gather
-function energy_distribution = gather(node)
-    if isempty(node.children)
-        % 如果是葉節點，返回能量分佈
-        energy_distribution = compute_energy(node.particles);
-    else
-        % 否則，遞迴地收集每個子節點的能量分佈
-        energy_distribution = 0;
-        for i = 1:4
-            energy_distribution = energy_distribution + gather(node.children{i});
+function far_field_nodes = find_far_field_nodes(root_node, current_index)
+    % 查找與當前節點遠場相互作用的節點
+    far_field_nodes = [];
+    current_node = root_node(current_index);
+    for i = 1:4
+        if i ~= current_index  % 跳過當前節點本身
+            if root_node(i).level == current_node.level && ~is_adjacent(root_node(i), current_node)
+                far_field_nodes = [far_field_nodes, root_node(i).children];
+            end
         end
     end
 end
 
-function energy = compute_energy(particles)
-    % 計算每個粒子的最終能量分佈
-    % 假設能量與多極展開和局部展開的結果相關
-    energy = sum(particles(:, 3));  % 假設第三列是劑量值
+function adjacent = is_adjacent(node1, node2)
+    % 判斷兩個節點是否相鄰
+    adjacent = (node1.boundary(1) == node2.boundary(1) || node1.boundary(2) == node2.boundary(1) || ...
+                node1.boundary(1) == node2.boundary(2) || node1.boundary(2) == node2.boundary(2)) && ...
+               (node1.boundary(3) == node2.boundary(3) || node1.boundary(4) == node2.boundary(3) || ...
+                node1.boundary(3) == node2.boundary(4) || node1.boundary(4) == node2.boundary(4));
 end
+
+
+
+
+
+
 

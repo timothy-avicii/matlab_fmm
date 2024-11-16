@@ -1,42 +1,90 @@
-% Load data (kernel and mask)
+% 加載數據
 load test_wo_ans.mat
-kernel ;% Electron energy distribution    
-mask  ;% Lithographic pattern
 
-% Parameters
-[m, n] = size(mask);   % Size of the lithographic pattern
-exp_kernel_size = size(kernel);  % Kernel size
-expansion_factor = 2;  % Expansion factor for FMM
+global max_particles
+max_particles = 64;
 
-% Initialize the exposure energy distribution matrix
-exposure_energy = zeros(m, n);
+global node_num
+node_num = 0;
 
-% Fast Multipole Method (FMM) calculation
-% Split the grid into quadrants and calculate near and far field contributions
-%% 
+% 初始分割設置
+[mask_r, mask_c] = size(mask);
+mask_r = mask_r - 1;
+mask_c = mask_c - 1;
+lam_mask = gcd(mask_r, mask_c);
 
-for i = 1:m
-    for j = 1:n
-        if mask(i, j) ~= 0
-            % Near-field calculation
-            for k = max(1, i-expansion_factor):min(m, i+expansion_factor)
-                for l = max(1, j-expansion_factor):min(n, j+expansion_factor)
-                    exposure_energy(k, l) = exposure_energy(k, l) + mask(i, j) * kernel(abs(i-k)+1, abs(j-l)+1);
-                end
-            end
-            % Far-field approximation (FMM)
-            % Approximate contributions from distant points using multipole expansion
-            % (this part of the implementation can be optimized further with hierarchical grids)
+init_row = mask_r / lam_mask;
+init_col = mask_c / lam_mask;
+
+% 初始化節點
+node = struct('range', [], 'part', 0, 'level', 1, 'children', []);
+node = initial_split(init_row, init_col, node, lam_mask, mask);
+
+% 遞歸分割
+node = recursive_split(node, mask);
+
+% 初始分割函數
+function node = initial_split(row, col, node, lam, mask)
+    % 用GCD分割mask為初始節點
+    global node_num
+    for i = 1:row
+        for j = 1:col
+            range = [lam * (i - 1) + 1, lam * i + 1, lam * (j - 1) + 1, lam * j + 1];
+            sub_mask = mask(range(1):range(2)-1, range(3):range(4)-1);
+            part_count = nnz(sub_mask);
+            
+            % 建立節點
+            node(i, j).range = range;
+            node(i, j).part = part_count;
+            node(i, j).level = 1;
+            node(i, j).children = [];
+            
+            % 更新節點總數
+            node_num = node_num + 1;
         end
     end
 end
-%% 
 
-% Visualize the results
-figure;
-imagesc(exposure_energy);
-title('Exposure Energy Distribution');
-colorbar;
+% 遞歸分割函數
+function node = recursive_split(node, mask)
+    % 檢查是否需要進一步分割
+    global max_particles
+    global node_num
+    
+    for i = 1:numel(node)
+        % 如果節點粒子數超過限制，則分割
+        if node(i).part > max_particles
+            range = node(i).range;
+            mid_x = floor((range(1) + range(2)) / 2);
+            mid_y = floor((range(3) + range(4)) / 2);
+            
+            % 分割為四個子區域
+            children = struct('range', [], 'part', 0, 'level', 0 , 'children', []);
+            children(1).range = [range(1), mid_x, range(3), mid_y];
+            children(2).range = [mid_x+1, range(2), range(3), mid_y];
+            children(3).range = [range(1), mid_x, mid_y+1, range(4)];
+            children(4).range = [mid_x+1, range(2), mid_y+1, range(4)];
+            [children.level] = deal(node(i).level + 1);
+            for k = 1:4
+                sub_mask = mask(children(k).range(1):children(k).range(2)-1, ...
+                                children(k).range(3):children(k).range(4)-1);
+                children(k).part = nnz(sub_mask);
+                node_num = node_num + 1;
+            end
+            
+            % 遞歸處理子節點
+            for k = 1:4
+                if children(k).part > max_particles
+                    children(k) = recursive_split(children(k), mask);
+                end
+            end
+            
+            % 更新當前節點的子節點
+            node(i).children = children;
+        end
+    end
+end
+
 
 
 

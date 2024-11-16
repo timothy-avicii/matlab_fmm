@@ -2,23 +2,30 @@ load test_wo_ans.mat
 global max_particles
 max_particles = 64;
 levelnum = 1;
-cell = {};
+cell = {};  
+%cell 用來存葉節點
+
 [mask_quadtree, cell ]= initialize_quadtree(mask,levelnum,cell,cal_boundary(mask));
 
 %% Initialization
 function boundary = cal_boundary(matrix)
     % 自動給出矩陣的邊界陣列 [1 xmax 1 ymax]  
     boundary = [1 size(matrix,1) 1 size(matrix,2)];
-end   %如果cell可以保持原矩陣元素的順序和位置，就可以不用頂點， %暫時不考慮
-      %改以雙迴圈，其位置在-1 0 -1的格子列為ULIST
-    
+end   
+%如果cell可以保持原矩陣元素的順序和位置，就可以不用頂點， %暫時不考慮
+%改以雙迴圈，其位置在-1 0 -1的格子列為ULIST
+
+%% 
+
+
 function [quadtree, cell] = initialize_quadtree(particles,levelnum,cell, boundary)
-    % particles: 可能包含粒子的節點(矩陣)
+    % particles: 可能包含粒子的節點(矩陣) mask切割後的
     % boundary: 節點的邊界 [xmin xmax ymin ymax]
     % max_particles: 每個節點中最多能容納的粒子數
  
     % 如果當前節點的粒子數量超過 max_particles，則分割區域
     count = nnz(particles(:)) ;
+
     for i = 1: size(particles,1)
         for j = 1: size(particles,2)
             if particles(i,j) == 1
@@ -51,8 +58,9 @@ function [quadtree, cell] = initialize_quadtree(particles,levelnum,cell, boundar
         cell{1,2} = {new_cell{1,2}};
         cell{2,1} = {new_cell{2,1}};
         cell{2,2} = {new_cell{2,2}};
-        %cell是否能保有原本mask的全部元素?？                  
 
+        %cell是否能保有原本mask的全部元素?？                  
+        %我想應該可以 因為本來就是由mask直接切割來的 
    
         quadtree = struct('children', {}, 'divided_particles', [], ...
                           'level', levelnum,'boundary', boundary) ;
@@ -74,6 +82,7 @@ function [quadtree, cell] = initialize_quadtree(particles,levelnum,cell, boundar
 
 
         %處理邊界
+        %平均分割
         mid_x = (boundary(1) + boundary(2)) / 2;
         mid_y = (boundary(3) + boundary(4)) / 2;
 
@@ -125,18 +134,18 @@ function pre_order_traversal(root_node)
     % 遍歷四叉樹的四個子節點
     for k = 1:4
         if ~isempty(root_node(k).children)
-            U_counter1 = U_counter1 + 1;
             
+            U_counter1 = U_counter1 + 1 ;
             % 更新U_list (最近鄰域節點)
-            U_list(U_counter1).node = sprintf('%s%c%lf%s', inputname(1), '(', U_counter1, ').children');
+            U_list(U_counter1).node = sprintf('%s%c%d%s', inputname(1), '(', U_counter1, ').children');
             U_list(U_counter1).list = find_neighbor_nodes(root_node, k);  % 優化：提取邏輯
             
             % 更新V_list (遠場節點)
             V_counter1 = V_counter1 + 1;
-            V_list(V_counter1).node = sprintf('%s%c%lf%s', inputname(1), '(', V_counter1, ').children');
+            V_list(V_counter1).node = sprintf('%s%c%d%s', inputname(1), '(', V_counter1, ').children');
             V_list(V_counter1).list = find_far_field_nodes(root_node, k);  % 優化：提取邏輯
             
-            % 遞迴遍歷
+            % 遞迴遍歷 recursive
             pre_order_traversal(root_node(k).children);
         end
     end
