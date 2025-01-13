@@ -1,11 +1,11 @@
 tic; % 開始計時
 clear
 load test_wo_ans.mat
-global n
-n = 6;
+
+n = 16;
 
 global max_particles
-max_particles = 4*(2^n);
+max_particles = 4*(n^2);
 
 augmented_mask = augment(mask);
 function y = augment(mask)
@@ -16,6 +16,25 @@ levelnum = 1;
 
 [mask_quadtree]= initialize_quadtree(augmented_mask, levelnum, ...
                                             normalized_boundary(augmented_mask), [1,1]);
+
+
+ % [X_axis , Y_axis, Weight ] = generate2DChebyshevNodesUniformWeights(n);
+
+% % low rank approximation用的Chebyshev插值
+% function [X, Y, weights] = generate2DChebyshevNodesUniformWeights(n)
+%     % 生成二維切比雪夫節點和權重
+%     k = 0:n-1;
+%     nodes = cos((2*k + 1) * pi / (2*n));
+%     [X, Y] = meshgrid(nodes, nodes);
+% 
+%     % 一維權重計算
+%     oneD_weights = (pi / n) * sin((2*k + 1) * pi / (2*n));
+% 
+%     % 二維權重
+%     weights = oneD_weights' * oneD_weights; % 二維權重是外積
+% end
+% imagesc(Weight)
+% colorbar
 
 %% Initialization
 function normalized_boundary = normalized_boundary(matrix)
@@ -67,7 +86,7 @@ function [quadtree] = initialize_quadtree(particles, levelnum, boundary, coordin
     
         quadtree = struct('children', {}, 'divided_particles', [], 'is_leaf_node', [], ...
                           'level', levelnum,'boundary', boundary, 'coordinate',coordinate,'particles', 0, ...
-                          'weigh' , 0 , 'sum', 0);
+                          'weigh' , 0) ;
         
         % % 分割成四個區域
         % [region1, region2, region3, region4] = split_boundary(boundary);
@@ -89,7 +108,12 @@ function [quadtree] = initialize_quadtree(particles, levelnum, boundary, coordin
         quadtree(3).particles = nnz(new_particles_in_cell{2, 1});
         quadtree(4).particles = nnz(new_particles_in_cell{2, 2});
 
-
+        quadtree_sum =  sum([quadtree.particles]);
+        
+        quadtree(1).weigh =  quadtree(1).particles/quadtree_sum;
+        quadtree(2).weigh =  quadtree(2).particles/quadtree_sum;
+        quadtree(3).weigh =  quadtree(3).particles/quadtree_sum;
+        quadtree(4).weigh =  quadtree(4).particles/quadtree_sum;
         
 
         %處理邊界
@@ -119,7 +143,7 @@ function [quadtree] = initialize_quadtree(particles, levelnum, boundary, coordin
         quadtree(2).coordinate = new_cor2;
         quadtree(3).coordinate = new_cor3;
         quadtree(4).coordinate = new_cor4;
-
+        
         % 遞迴地為每個子區域建立四叉樹
         quadtree(1).children = initialize_quadtree(quadtree(1).divided_particles, ...
             levelnum + 1 , new_boundary1, new_cor1);
@@ -476,13 +500,18 @@ end
 
 
  
-mask_quadtree = get_dose(mask_quadtree, kernel);
+%mask_quadtree = get_dose(mask_quadtree, kernel);
 
 function mask_quadtree = get_dose(mask_quadtree, psf)
     % Upward Pass
     
+    % upward pass不實做 因為我們拿到的kernel psf是矩陣，而不是高斯函數，若是高斯函數，要先用切比薛夫插值
+
+
     mask_quadtree = S2M(mask_quadtree);
     mask_quadtree = M2M(mask_quadtree);
+    
+    
     % % Downward Pass
     % downward_pass(mask_quadtree, []);
     % 
@@ -498,28 +527,7 @@ function mask_quadtree = get_dose(mask_quadtree, psf)
     % imagesc(dose_distribution); colorbar;
 end
 
-
-function mask_quadtree = S2M(mask_quadtree)
-    
-    for i = 1 : 4
-        if mask_quadtree(i).is_leaf_node
-            mask_quadtree(i).sum = mask_quadtree(i).particles;             
-        else    
-            mask_quadtree(i).children = S2M(mask_quadtree(i).children);
-        end
-    end  
-end
-
-function mask_quadtree = M2M(mask_quadtree)
-    
-    for i = 1 : 4
-        if isempty(mask_quadtree(i).sum)
-           mask_quadtree(i).children = M2M(mask_quadtree(i).children);
-        end
-    end  
-    
-
-end
+% 將leaf node上的term作為傳遞目標，求出weigh
 
 
 
