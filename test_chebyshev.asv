@@ -46,18 +46,21 @@ cheb = chebyshev(N, D);
 
 % 子節點數據
 child_nodes = cheb.nodes; % Chebyshev 節點
-v = [0.1 0.9  0.2 0.8]; % 子節點的初始數據
+v = [0.1 0.2 0.3 0.4]; % 子節點的初始數據
 
 % Upward Pass: 計算父節點的權重
 weights = cheb.anterpolate(child_nodes, v);
 disp("Upward Pass (Weights):");
-disp(weights)
+disp(weights);
 
 % Downward Pass: 計算子節點的數據
 interpolated_values = cheb.interpolate(child_nodes, weights);
 disp("Downward Pass (Values):");
-disp(interpolated_values)
+disp(interpolated_values);
 
+% 驗證結果：插值值應接近原始數據
+disp("Original Values (v):");
+disp(v);
 
 % 誤差分析
 error = norm(interpolated_values - v);

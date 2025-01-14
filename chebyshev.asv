@@ -95,19 +95,15 @@ classdef chebyshev
         %up_coeffs會是一個四維大小的矩陣 大小為[子節點大小 父節點大小 N D]
         function up_coeffs = upwards_coeffs(obj)
             % Generate child node positions
-            % 子節點與父節點的偏移量
             shifts = [-0.5, 0.5];
             offsets = obj.cartesian_product(shifts, obj.D); % Offset vectors (2^D, D)
 
             % Compute child nodes by applying offsets to each parent node
-            % 用來預分配空間
             n_parents = size(obj.nodes, 1); % Number of parent nodes
             n_children = size(offsets, 1); % Number of children per parent
 
             % Preallocate for 4D tensor output
-            % 這個上行係數矩陣的大小應該要和理論上一樣
-            % 但在python的那個程式裡執行出來的大小也是如此，矩陣的entry順序也是正確的
-            % 下行係數矩陣的大小也和理論上的大小有出入
+            % 這個上行係數矩陣的大小應該要和
             %up_coeffs = zeros(n_children, n_parents, obj.N, obj.D);
 
             % For each child node set, compute similarity with parents
@@ -122,6 +118,7 @@ classdef chebyshev
             end
         end
 
+
         % Interpolation weights for arbitrary points
         function values = interpolate(obj, points, weights)
             % points: Interpolation points (n_points, D)
@@ -132,7 +129,7 @@ classdef chebyshev
             S = obj.similarity(points, obj.nodes); % (n_points, n_nodes)
 
             % Interpolate values
-            values = S .* weights; % (n_points, 1)
+            values = S * weights; % (n_points, 1)
         end
 
         % Compute interpolation weights from known values

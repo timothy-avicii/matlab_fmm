@@ -120,6 +120,6 @@ xlabel('x');
 ylabel(['T', num2str(n), '(x)']);
 legend('Location', 'Best');
 grid on;
-hold off;
-
-
+hold on
+%%
+% 
