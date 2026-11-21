@@ -1,0 +1,6 @@
+# Python 編譯快取
+__pycache__/
+*.pyc
+
+# MATLAB 自動備份檔
+*.asv
