@@ -106,7 +106,9 @@ def orthantree(scaled, capacity=8):
 
 def child_boxes(tree, indices, descent):
     subscripts = (descent + 1)/2
-    return tree.children[(indices, *subscripts.T.long())]
+    # unbind(-1) 依最後一維（各座標軸）拆開；對 (n, D) 與 (D,) 都和原本的 .T 結果相同，
+    # 但不會觸發 PyTorch 對非二維 tensor 使用 .T 的棄用警告（未來版本會變成錯誤）
+    return tree.children[(indices, *subscripts.long().unbind(-1))]
 
 
 def neighbour_boxes(tree, indices, directions):
@@ -195,7 +197,7 @@ def neighbour_boxes(tree, node, direction):
     for neighbour_descent in neighbour_descents[::-1]:
         if tree.terminal[node] or node < 0:
             break
-        node = tree.children[(node, *(neighbour_descent.T + 1)//2)]
+        node = tree.children[(node, *((neighbour_descent + 1)//2).unbind(-1))]
   
     return node
 '''
