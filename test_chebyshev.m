@@ -2,14 +2,14 @@
 clear 
 
 % 初始化 Chebyshev 類
-N = 3; % 切比雪夫節點數量
-D = 3; % 維度
+N = 16; % 切比雪夫節點數量
+D = 2; % 維度
 
 cheb = chebyshev(N, D);
 
-% 顯示節點
-disp('Chebyshev Nodes:');
-disp(cheb.nodes);
+% % 顯示節點
+% disp('Chebyshev Nodes:');
+% disp(cheb.nodes);
 % 
 % % 相似度矩陣
 % a = [0.5 0.1; -0.5 -0.1]; % 第一組點
@@ -21,18 +21,21 @@ disp(cheb.nodes);
 %向下插值
 down_coeffs = cheb.downwards_coeffs();
 disp('Downwards Coefficients:');
-for i = 1 : numel(down_coeffs)
-    down_coeffs(i)
-end
+% for i = 1 : numel(down_coeffs)
+%     down_coeffs(i)
+% end
 %disp(down_coeffs);
+disp(size(down_coeffs));
 
 % 向上插值
 up_coeffs = cheb.upwards_coeffs();
 disp('Upwards Coefficients:');
+disp(size(up_coeffs));
+%disp(up_coeffs);
 % for i = 1 : numel(up_coeffs)
 %     up_coeffs(i)
 % end
-%disp(up_coeffs);
+
 %%
 
 
@@ -60,7 +63,7 @@ disp(interpolated_values)
 
 
 % 誤差分析
-error = norm(interpolated_values - v);
+error = norm(interpolated_values - v(:));
 disp("Interpolation Error:");
 disp(error);
 
