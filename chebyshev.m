@@ -13,7 +13,7 @@ classdef chebyshev
             obj.D = D;
             obj.nodes = obj.generate_nodes(); % Generate nodes during initialization
         end
-
+        
         % Generate Chebyshev nodes
         function nodes = generate_nodes(obj)
             ms = 0:obj.N-1;
@@ -23,9 +23,11 @@ classdef chebyshev
 
         % Similarity function
         % 相似矩陣similar matrix與a與b的大小有關，row是a的row，column是b的row，D維度是a, b的column
+        % 相似矩陣負責量化兩筆資料的相似度
         % 若 [a1 a2] = size(a) [b1 b2] = size(b),則 a2 = b2, [s1 s2] = size(s) s1 = a1, s2 = b1
         function S = similarity(obj, a, b)
             % Ensure points are within [-1, 1]
+            % 因為用到的柴比雪夫插值，所以只能操作-1到1的資料點。
             assert(all(a(:) >= -1 & a(:) <= 1), 'Points in a must be in [-1, 1]');
             assert(all(b(:) >= -1 & b(:) <= 1), 'Points in b must be in [-1, 1]');
 
@@ -40,6 +42,7 @@ classdef chebyshev
             S = ones(n_a, n_b);
 
             % Iterate over each dimension
+            % 因為matlab不支援自動擴增矩陣大小，使其能做乘法運算
             for d = 1:D
                 % Compute Chebyshev angles
                 theta_a = acos(a(:, d)); % (n_a, 1)
@@ -78,7 +81,7 @@ classdef chebyshev
             n_children = size(offsets, 1); % Number of children per parent
 
             % Preallocate for 4D tensor output
-            %down_coeffs = zeros(n_parents, n_children, obj.N, obj.D);
+            down_coeffs = zeros(n_parents, n_children, obj.N ^ obj.D , obj.D);
        
             % For each parent node, compute similarity with children
             for i = 1:n_parents
@@ -108,7 +111,7 @@ classdef chebyshev
             % 這個上行係數矩陣的大小應該要和理論上一樣
             % 但在python的那個程式裡執行出來的大小也是如此，矩陣的entry順序也是正確的
             % 下行係數矩陣的大小也和理論上的大小有出入
-            %up_coeffs = zeros(n_children, n_parents, obj.N, obj.D);
+            up_coeffs = zeros(n_children, n_parents, obj.N ^ obj.D, obj.D);
 
             % For each child node set, compute similarity with parents
             for i = 1:n_children
@@ -132,7 +135,9 @@ classdef chebyshev
             S = obj.similarity(points, obj.nodes); % (n_points, n_nodes)
 
             % Interpolate values
-            values = S .* weights; % (n_points, 1)
+            % 要用矩陣乘法：values(p) = sum_k S(p,k) * weights(k)
+            % (原本的 .* 是逐元素相乘，點數與節點數不同時會出錯，相同時會回傳矩陣)
+            values = S * weights(:); % (n_points, 1)
         end
 
         % Compute interpolation weights from known values
@@ -145,7 +150,8 @@ classdef chebyshev
             % 用相似矩陣去做反插值
 
             % Compute weights
-            weights = S .* values; % (n_nodes, 1)
+            % 要用矩陣乘法：weights(k) = sum_p S(k,p) * values(p)
+            weights = S * values(:); % (n_nodes, 1)
         end
 
 

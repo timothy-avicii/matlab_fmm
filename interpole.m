@@ -1,4 +1,5 @@
-
+clear
+close all
 n = 10 ;
  [a, b, c ] = generate2DChebyshevNodesUniformWeights(n);
 
@@ -11,7 +12,8 @@ function [X, Y, weights] = generate2DChebyshevNodesUniformWeights(n)
     weights = pi / n * ones(n, n); % 均勻權重
 end
 %% 
-
+clear
+close all
 
 n = 10;
 
@@ -52,7 +54,7 @@ end
 clc; clear; close all;
 
 
-n = 15; % 切比雪夫多項式的階數
+n = 20; % 切比雪夫多項式的階數
 f = @(x) 1 ./ (1 + 25 * x.^2); % 待逼近函数（Runge 函数）
 x_plot = linspace(-1, 1, 500); % 用于绘制原函数和插值多项式的点
 
@@ -89,7 +91,8 @@ legend('Location', 'Best');
 grid on;
 hold off;
 %% 
-
+clear 
+close all
 % 参数设置
 n = 10; % 切比雪夫多项式的阶数
 x = linspace(-1, 1, 500); % 用于绘图的点
@@ -121,5 +124,46 @@ ylabel(['T', num2str(n), '(x)']);
 legend('Location', 'Best');
 grid on;
 hold on
-%%
-% 
+%% 
+% 二維矩陣的大小
+M = 10; % 行數
+N = 10; % 列數
+
+% 生成原始二維矩陣
+matrix = rand(M, N);
+
+% 步驟1: 將矩陣座標化
+[x, y] = meshgrid(1:N, 1:M); % 建立二維座標
+
+% 步驟2: 轉換為 Chebyshev 節點
+% Chebyshev 節點公式: x_i = cos((2i-1)*pi/(2n))，i = 1, 2, ..., n
+% 對於 M 和 N 分別計算
+chebyshev_x = cos((2*(1:N)-1)*pi/(2*N));
+chebyshev_y = cos((2*(1:M)-1)*pi/(2*M));
+
+% 步驟3: 映射矩陣資料到 Chebyshev 節點
+% 生成新的網格 (Chebyshev 節點的網格)
+[cheb_x, cheb_y] = meshgrid(chebyshev_x, chebyshev_y);
+
+% 插值: 將原始矩陣映射到 Chebyshev 節點網格上
+% 使用 interp2 進行插值
+chebyshev_matrix = interp2(x, y, matrix, cheb_x, cheb_y, 'linear');
+
+% 結果輸出
+disp('原始矩陣:');
+disp(matrix);
+
+disp('Chebyshev 節點矩陣:');
+disp(chebyshev_matrix);
+
+% 可視化對比
+figure;
+subplot(1, 2, 1);
+imagesc(matrix);
+title('原始矩陣');
+colorbar;
+
+subplot(1, 2, 2);
+imagesc(chebyshev_matrix);
+title('Chebyshev 節點矩陣');
+colorbar;

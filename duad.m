@@ -56,18 +56,14 @@ function node = createQuadtree(layout, x, y, depth)
     idx4 = x > midX & y > midY;
     
     % 建立子節點
-    node = struct('layout', [], 'x', [], 'y', [], 'children', []);
-    if sum(layout(idx1)) > 4
-        node.children{1} = createQuadtree(layout(idx1), x(idx1), y(idx1), depth - 1);
-    end
-    if sum(layout(idx2)) > 4
-        node.children{2} = createQuadtree(layout(idx2), x(idx2), y(idx2), depth - 1);
-    end
-    if sum(layout(idx3)) > 4
-        node.children{3} = createQuadtree(layout(idx3), x(idx3), y(idx3), depth - 1);
-    end
-    if sum(layout(idx4)) > 4
-        node.children{4} = createQuadtree(layout(idx4), x(idx4), y(idx4), depth - 1);
+    % 只要象限內有點就要建立子節點 (點數 <= 4 時遞迴會直接回傳葉節點)
+    % 原本用 > 4 判斷，會把點數 1~4 的象限整個丟掉
+    node = struct('layout', [], 'x', [], 'y', [], 'children', {cell(1, 4)});
+    idxs = {idx1, idx2, idx3, idx4};
+    for k = 1:4
+        if sum(layout(idxs{k})) > 0
+            node.children{k} = createQuadtree(layout(idxs{k}), x(idxs{k}), y(idxs{k}), depth - 1);
+        end
     end
 end
 
@@ -78,7 +74,7 @@ function plotQuadtree(node)
         return;
     end
     
-    for i = 1:4
+    for i = 1:numel(node.children)
         if ~isempty(node.children{i})
             plotQuadtree(node.children{i});
         end

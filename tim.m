@@ -2,6 +2,7 @@ tic; % 開始計時
 clear
 load test_wo_ans.mat
 
+global n
 n = 16;
 
 global max_particles
@@ -43,7 +44,7 @@ function normalized_boundary = normalized_boundary(matrix)
     normalized_boundary = [-1 1 -1 1];
 end   %如果cell可以保持原矩陣元素的順序和位置，就可以不用頂點， %暫時不考慮
       
-%%
+
 function [quadtree] = initialize_quadtree(particles, levelnum, boundary, coordinate)
     % particles: 可能包含粒子的節點(矩陣)
     % boundary: 節點的邊界 [xmin xmax ymin ymax]
@@ -108,14 +109,6 @@ function [quadtree] = initialize_quadtree(particles, levelnum, boundary, coordin
         quadtree(3).particles = nnz(new_particles_in_cell{2, 1});
         quadtree(4).particles = nnz(new_particles_in_cell{2, 2});
 
-        quadtree_sum =  sum([quadtree.particles]);
-        
-        quadtree(1).weigh =  quadtree(1).particles/quadtree_sum;
-        quadtree(2).weigh =  quadtree(2).particles/quadtree_sum;
-        quadtree(3).weigh =  quadtree(3).particles/quadtree_sum;
-        quadtree(4).weigh =  quadtree(4).particles/quadtree_sum;
-        
-
         %處理邊界
         mid_x = (boundary(1) + boundary(2)) / 2;
         mid_y = (boundary(3) + boundary(4)) / 2;
@@ -131,8 +124,9 @@ function [quadtree] = initialize_quadtree(particles, levelnum, boundary, coordin
         quadtree(4).boundary = new_boundary4;
 
         %處理座標
-        mid_x_prime = size(particles,2) / 2 + 1;
-        mid_y_prime = size(particles,1) / 2 + 1;
+        % 子節點座標要以父節點的左上角 coordinate 為基準，不能只用目前區塊的相對位置
+        mid_x_prime = coordinate(1) + size(particles,2) / 2;
+        mid_y_prime = coordinate(2) + size(particles,1) / 2;
 
         new_cor1 = [coordinate(1), coordinate(2)];
         new_cor2 = [mid_x_prime, coordinate(2)];
@@ -189,7 +183,7 @@ end
 
 
 
-%%做U_list
+%做U_list
 divided_mask_clone = BFS_for_U_list_1(mask_quadtree, mask);
 
 function y = BFS_for_U_list_1(root, mask)
@@ -430,7 +424,7 @@ function [U_list, V_list] = U_List_step2(divided_mask_clone)
     
     % 移除未使用的預分配空間
     U_list = U_list(1:counter1-1);
-    V_list = V_list(1:counter1-1);
+    V_list = V_list(1:counter2-1);
 end
 
 function neighbors = find_neighbors(divided_mask_clone, i, j, current_node)
@@ -467,19 +461,18 @@ function neighbors_of_neighbors = find_neighbors_of_neighbors(divided_mask_clone
     neighbors_of_neighbors = {};
     counter = 1;
     
-    % 定義相鄰的相鄰方向的偏移量
-    offsets = [
-  -3 -3; -2 -3; -1 -3; 0 -3; 1 -3; 2 -3; 3 -3;
-  -3 -2; -2 -2; -1 -2; 0 -2; 1 -2; 2 -2; 3 -2;
-  -3 -1; -2 -1;                    2 -1; 3 -1; 
-  -3  0; -2  0;                    2  0; 3  0;
-  -3  1; -2  1;                    2  1; 3  1; 
-  -3  2; -2  2; -1  2; 0  2; 1  2; 2  2; 3  2;
-  -3  3; -2  3; -1  3; 0  3; 1  3; 2  3; 3  3;
-    ];
-    
+    % V-list (interaction list) = 父節點鄰居的子節點中，與自己不相鄰的那些
+    % 父節點的鄰居的子節點會涵蓋一個 6x6 的範圍，偏向哪一側取決於自己在父節點中的位置：
+    %   自己在父節點的左(上)半 -> 偏移量 -2..3；在右(下)半 -> 偏移量 -3..2
+    % 再扣掉自己與相鄰的 3x3，最多 27 個。原本對稱的 7x7 會多出 13 個在父節點層級已處理過的盒子，造成重複計算
     node_size = size(current_node.divided_particles);
-    
+
+    pos_x = mod((current_node.coordinate(1) - 1) / node_size(2), 2); % 0: 左半, 1: 右半
+    pos_y = mod((current_node.coordinate(2) - 1) / node_size(1), 2); % 0: 上半, 1: 下半
+    [ox, oy] = ndgrid((-2 - pos_x):(3 - pos_x), (-2 - pos_y):(3 - pos_y));
+    offsets = [ox(:), oy(:)];
+    offsets(all(abs(offsets) <= 1, 2), :) = []; % 移除自己與相鄰的 3x3
+
     for k = 1:size(offsets, 1)
         ni = i + offsets(k,1) * node_size(2);
         nj = j + offsets(k,2) * node_size(1);
@@ -500,14 +493,11 @@ end
 
 
  
-%mask_quadtree = get_dose(mask_quadtree, kernel);
+mask_quadtree = get_dose(mask_quadtree, kernel);
 
 function mask_quadtree = get_dose(mask_quadtree, psf)
     % Upward Pass
-    
-    % upward pass不實做 因為我們拿到的kernel psf是矩陣，而不是高斯函數，若是高斯函數，要先用切比薛夫插值
-
-
+        
     mask_quadtree = S2M(mask_quadtree);
     mask_quadtree = M2M(mask_quadtree);
     
@@ -528,8 +518,43 @@ function mask_quadtree = get_dose(mask_quadtree, psf)
 end
 
 % 將leaf node上的term作為傳遞目標，求出weigh
+function mask_quadtree = S2M(mask_quadtree)
+    global n
+    d = 2;            
+    cheb = chebyshev(n, d);    
+    
+    for i = 1:4
+        if mask_quadtree(i).is_leaf_node
+            % 獲取葉節點內源點數據
+            particles = mask_quadtree(i).divided_particles;
+            
+            % 計算插值權重
+            
+            
+            % 確保插值權重與粒子數據匹配
+            resized_weights = resize_weights(weights, size(particles));
+            
+            % 更新等效權重
+            mask_quadtree(i).weights = resized_weights .* particles;
+        else
+            % 遞迴處理子節點
+            mask_quadtree(i).children = S2M(mask_quadtree(i).children);
+        end
+    end
+end
+
+function resized_weights = resize_weights(weights, particle_size)
+    % 將插值權重調整為與粒子數據匹配的大小
+    resized_weights = interp2(weights, ...
+        linspace(1, size(weights, 1), particle_size(1)), ...
+        linspace(1, size(weights, 2), particle_size(2))', ...
+        'linear');
+end
+
+function mask_quadtree = M2M(mask_quadtree)
 
 
+
+end
 
 toc; % 結束計時並返回所花時間（秒）
-

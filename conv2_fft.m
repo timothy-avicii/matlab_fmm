@@ -16,33 +16,31 @@ function c_fft = conv2_fft(a,b,shape)
 % 02 2009/01/07 debug& Cast variable to "single" data type CHLiu 
 %
 %
-a=[1 1 1 1 1;
-   1 0 0 0 1;
-   1 0 0 0 1;
-   1 0 0 0 1;
-   1 1 1 1 1];
-b=[0 0 0 0 0;
-   0 0 0 0 0;
-   0 0 1 0 0;
-   0 0 0 0 0;
-   0 0 0 0 0];
-% b=[0 0 0;
-%    0 1 0;
-%    0 0 0;];
- c=conv2(a,b,'full');
- cs=conv2(a,b,'same');
+% 測試用的範例 (原本寫死在函數裡，會蓋掉傳進來的 a, b，已移到註解):
+% a=[1 1 1 1 1;
+%    1 0 0 0 1;
+%    1 0 0 0 1;
+%    1 0 0 0 1;
+%    1 1 1 1 1];
+% b=[0 0 0 0 0;
+%    0 0 0 0 0;
+%    0 0 1 0 0;
+%    0 0 0 0 0;
+%    0 0 0 0 0];
+% c = conv2(a,b,'full');   cs = conv2(a,b,'same');
+% max(max(abs(conv2_fft(a,b,'full') - c)))
+
+if nargin < 3
+    shape = 'full'; % 文件說明的預設值
+end
 
 [ma,na]=size(a);[mb,nb]=size(b);
 a_zp=cast(zeros(ma+mb-1, na+nb-1),'single');a_zp(1:ma, 1:na)=a;
 b_zp=cast(zeros(ma+mb-1, na+nb-1),'single');b_zp(1:mb, 1:nb)=b;
+% 卷積定理：空間域的卷積 = 頻率域的相乘，FFT 是 O(n log n)，比直接卷積快
 c_fft=ifft2(fft2(a_zp).*fft2(b_zp));
-%為何要fft
 
-if(shape == 'full');
-    c_fft = c_fft;
-end 
-
-if(shape == 'same');
+if strcmp(shape, 'same')
     ma_half=(ma-1)/2;na_half=(na-1)/2;
     c_same_m_1st = (ma+mb)/2 - ma_half;
     c_same_n_1st = (na+nb)/2 - na_half;
